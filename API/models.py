@@ -7,3 +7,13 @@ class User(models.Model):
     AESkey = models.CharField(max_length=512)
     AESkeyIV = models.CharField(max_length=512)
     token = models.CharField(max_length=200)
+
+class Task(models.Model):
+    uuid = models.CharField(max_length=256, unique=True)
+    name = models.CharField(max_length=100)
+    specifiedUser = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE
+    )
+
+
