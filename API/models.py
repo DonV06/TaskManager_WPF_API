@@ -5,7 +5,5 @@ class User(models.Model):
     name = models.CharField(max_length=100)
     password = models.CharField(max_length=100)  # Consider using a secure hash here
     AESkey = models.CharField(max_length=512)
+    AESkeyIV = models.CharField(max_length=512)
     token = models.CharField(max_length=200)
-
-class Member(models.Model):
-    log = models.CharField(max_length=100)

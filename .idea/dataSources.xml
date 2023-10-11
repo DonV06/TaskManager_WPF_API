@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="db" uuid="bf95be3d-c608-4c46-8f27-e21bfccae009">
+    <data-source source="LOCAL" name="db" uuid="e5819c81-5aad-4c08-b329-193744845303">
       <driver-ref>sqlite.xerial</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
-      <jdbc-url>jdbc:sqlite:C:\Users\DonV06\PycharmProjects\TaskManager_WPF_API\db.sqlite3</jdbc-url>
+      <jdbc-url>jdbc:sqlite:C:\Users\DonV06\PycharmProjects\WPF_API\db.sqlite3</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
       <libraries>
         <library>
