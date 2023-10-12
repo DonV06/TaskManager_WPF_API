@@ -41,11 +41,12 @@ def APIRequest(request):
         if SendedJson["type"] == "loginTOKEN": return loginTOKEN(SendedJson)
         if SendedJson["type"] == "addTask": return addTask(SendedJson)
         if SendedJson["type"] == "getTask": return getTask(SendedJson)
-        if SendedJson["type"] == "refresh": return Refresh(SendedJson)
-        if SendedJson["type"] =="delTask": return delTask(SendedJson)
+        if SendedJson["type"] == "refresh": return getAllTasksUUIDs(SendedJson)
+        if SendedJson["type"] == "delTask": return delTask(SendedJson)
+        if SendedJson["type"] == "getAllTasks": return getAllTasks(SendedJson)
     return HttpResponse('API Request received')
 
-def loginTOKEN(SendedJson):
+def getUserWithCipther(SendedJson):
     TokenEncrypted = SendedJson["token"]
     AesKeyEncrypted = SendedJson["aeskey"].split("|")[0]
     AesKeyIVEncrypted = SendedJson["aeskey"].split("|")[1]
@@ -63,73 +64,51 @@ def loginTOKEN(SendedJson):
     AesKeyIV = private_key.decrypt(AesKeyIVRsaOnly, padding.PKCS1v15())
     cipher = Cipher(algorithms.AES(AesKey), modes.CBC(AesKeyIV), backend=default_backend())
 
-
     TokenDecrypted = decryptAES(TokenEncrypted, cipher)
 
     try:
-        userselected = models.User.objects.get(token=TokenDecrypted)
+        return (models.User.objects.get(token=TokenDecrypted), cipher, (AesKey, AesKeyIV))
     except models.User.DoesNotExist:
-        return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
-    userselected.AESkey = str(base64.b64encode(AesKey).decode())
-    userselected.AESkeyIV = str(base64.b64encode(AesKeyIV).decode())
+        return (None, cipher, (AesKey, AesKeyIV))
+
+def loginTOKEN(SendedJson):
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+    userselected.AESkey = str(base64.b64encode(AesKeyCombo[0]).decode())
+    userselected.AESkeyIV = str(base64.b64encode(AesKeyCombo[1]).decode())
     userselected.save()
     return JsonResponse({'status': 200})
 
-def Refresh(SendedJson):
-    TokenEncrypted = SendedJson["token"]
-    AesKeyEncrypted = SendedJson["aeskey"].split("|")[0]
-    AesKeyIVEncrypted = SendedJson["aeskey"].split("|")[1]
+def getAllTasks(SendedJson):
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+    tasks = models.Task.objects.filter(specifiedUser=userselected)
+    returnTasks = {"tasks": []}
+    for task in tasks:
+        returntask = {"name": task.name, "uuid": task.uuid, "dateTime": task.endTime}
+        returnTasks["tasks"].append(returntask)
 
-    with open('privatekey.pem', 'rb') as key_file:
-        private_key = serialization.load_pem_private_key(
-            key_file.read(),
-            password=None,
-            backend=default_backend()
-        )
+    returnTasks = base64.b64encode(json.dumps(returnTasks).encode()).decode()
 
-    AesKeyIVRsaOnly = base64.b64decode(AesKeyIVEncrypted)
-    AesKeyRsaOnly = base64.b64decode(AesKeyEncrypted)
-    AesKey = private_key.decrypt(AesKeyRsaOnly, padding.PKCS1v15())
-    AesKeyIV = private_key.decrypt(AesKeyIVRsaOnly, padding.PKCS1v15())
-    cipher = Cipher(algorithms.AES(AesKey), modes.CBC(AesKeyIV), backend=default_backend())
+    return JsonResponse({"status": 200, 'returnmessage': returnTasks})
 
-    TokenDecrypted = decryptAES(TokenEncrypted, cipher)
 
-    try:
-        user = models.User.objects.get(token=TokenDecrypted)
-    except models.User.DoesNotExist:
-        return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
-
-    uuidstask = []
-    tasks = models.Task.objects.filter(specifiedUser=user)
+def getAllTasksUUIDs(SendedJson):
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+    tasks = models.Task.objects.filter(specifiedUser=userselected)
     returnstring = ""
     for _task in tasks:
         returnstring += (_task.uuid + "|")
     return JsonResponse({'status': 200, 'uuids': returnstring})
+
+
+
+
 def getTask(SendedJson):
-    TokenEncrypted = SendedJson["token"]
-    AesKeyEncrypted = SendedJson["aeskey"].split("|")[0]
-    AesKeyIVEncrypted = SendedJson["aeskey"].split("|")[1]
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
 
-    with open('privatekey.pem', 'rb') as key_file:
-        private_key = serialization.load_pem_private_key(
-            key_file.read(),
-            password=None,
-            backend=default_backend()
-        )
-
-    AesKeyIVRsaOnly = base64.b64decode(AesKeyIVEncrypted)
-    AesKeyRsaOnly = base64.b64decode(AesKeyEncrypted)
-    AesKey = private_key.decrypt(AesKeyRsaOnly, padding.PKCS1v15())
-    AesKeyIV = private_key.decrypt(AesKeyIVRsaOnly, padding.PKCS1v15())
-    cipher = Cipher(algorithms.AES(AesKey), modes.CBC(AesKeyIV), backend=default_backend())
-
-    TokenDecrypted = decryptAES(TokenEncrypted, cipher)
-
-    try:
-        user = models.User.objects.get(token=TokenDecrypted)
-    except models.User.DoesNotExist:
-        return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
     taskUUIDEncrypted = SendedJson["taskUUID"]
     taskUUID = decryptAES(taskUUIDEncrypted, cipher)
     try:
@@ -147,29 +126,8 @@ def getTask(SendedJson):
     return JsonResponse({'status': 200, 'nameTask': taskName})
 
 def delTask(SendedJson):
-    TokenEncrypted = SendedJson["token"]
-    AesKeyEncrypted = SendedJson["aeskey"].split("|")[0]
-    AesKeyIVEncrypted = SendedJson["aeskey"].split("|")[1]
-
-    with open('privatekey.pem', 'rb') as key_file:
-        private_key = serialization.load_pem_private_key(
-            key_file.read(),
-            password=None,
-            backend=default_backend()
-        )
-
-    AesKeyIVRsaOnly = base64.b64decode(AesKeyIVEncrypted)
-    AesKeyRsaOnly = base64.b64decode(AesKeyEncrypted)
-    AesKey = private_key.decrypt(AesKeyRsaOnly, padding.PKCS1v15())
-    AesKeyIV = private_key.decrypt(AesKeyIVRsaOnly, padding.PKCS1v15())
-    cipher = Cipher(algorithms.AES(AesKey), modes.CBC(AesKeyIV), backend=default_backend())
-
-    TokenDecrypted = decryptAES(TokenEncrypted, cipher)
-
-    try:
-        user = models.User.objects.get(token=TokenDecrypted)
-    except models.User.DoesNotExist:
-        return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
     taskUUIDEncrypted = SendedJson["taskUUID"]
     taskUUID = decryptAES(taskUUIDEncrypted, cipher)
     try:
@@ -181,36 +139,20 @@ def delTask(SendedJson):
 
     return JsonResponse({'status': 200})
 def addTask(SendedJson):
-    TokenEncrypted = SendedJson["token"]
-    AesKeyEncrypted = SendedJson["aeskey"].split("|")[0]
-    AesKeyIVEncrypted = SendedJson["aeskey"].split("|")[1]
-
-    with open('privatekey.pem', 'rb') as key_file:
-        private_key = serialization.load_pem_private_key(
-            key_file.read(),
-            password=None,
-            backend=default_backend()
-        )
-
-    AesKeyIVRsaOnly = base64.b64decode(AesKeyIVEncrypted)
-    AesKeyRsaOnly = base64.b64decode(AesKeyEncrypted)
-    AesKey = private_key.decrypt(AesKeyRsaOnly, padding.PKCS1v15())
-    AesKeyIV = private_key.decrypt(AesKeyIVRsaOnly, padding.PKCS1v15())
-    cipher = Cipher(algorithms.AES(AesKey), modes.CBC(AesKeyIV), backend=default_backend())
-
-    TokenDecrypted = decryptAES(TokenEncrypted, cipher)
-
-    try:
-        user = models.User.objects.get(token=TokenDecrypted)
-    except models.User.DoesNotExist:
-        return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
     nameEncrypted = SendedJson["Name"]
     nameTask = decryptAES(nameEncrypted, cipher)
+    DateTimeEncrypted = SendedJson["dateTime"]
+    dateTimeRaw = decryptAES(DateTimeEncrypted, cipher)
+
     uuidTask = str(uuid.uuid4())
+
     task = models.Task()
     task.uuid = uuidTask
     task.name = nameTask
-    task.specifiedUser = user
+    task.endTime = dateTimeRaw
+    task.specifiedUser = userselected
     task.save()
 
     encryptor = cipher.encryptor()

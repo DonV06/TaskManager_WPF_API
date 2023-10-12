@@ -11,9 +11,11 @@ class User(models.Model):
 class Task(models.Model):
     uuid = models.CharField(max_length=256, unique=True)
     name = models.CharField(max_length=100)
+    endTime = models.CharField(max_length=200)
     specifiedUser = models.ForeignKey(
         User,
         on_delete=models.CASCADE
     )
+
 
 
