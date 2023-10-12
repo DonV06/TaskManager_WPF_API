@@ -35,7 +35,7 @@ def decryptAES(message, AEScipher):
 @csrf_exempt
 def APIRequest(request):
     if request.method == 'POST':
-
+        print(request.body.decode('utf-8'))
         SendedJson = json.loads(request.body.decode('utf-8'))
         if SendedJson["type"] == "loginNOTOKEN": return loginNOTOKEN(SendedJson)
         if SendedJson["type"] == "loginTOKEN": return loginTOKEN(SendedJson)
@@ -43,8 +43,12 @@ def APIRequest(request):
         if SendedJson["type"] == "getTask": return getTask(SendedJson)
         if SendedJson["type"] == "refresh": return getAllTasksUUIDs(SendedJson)
         if SendedJson["type"] == "delTask": return delTask(SendedJson)
+        if SendedJson["type"] == "updateData": return updateData(SendedJson)
+        if SendedJson["type"] == "getUpdateDate": return getUpdateDate(SendedJson)
         if SendedJson["type"] == "getAllTasks": return getAllTasks(SendedJson)
     return HttpResponse('API Request received')
+
+
 
 def getUserWithCipther(SendedJson):
     TokenEncrypted = SendedJson["token"]
@@ -70,6 +74,38 @@ def getUserWithCipther(SendedJson):
         return (models.User.objects.get(token=TokenDecrypted), cipher, (AesKey, AesKeyIV))
     except models.User.DoesNotExist:
         return (None, cipher, (AesKey, AesKeyIV))
+
+
+def getUpdateDate(SendedJson):
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+
+    prorityList = models.Prority.objects.filter(ownerUser=userselected)
+    prorityJson = {'Priorities': []}
+
+    for prority in prorityList:
+        prorityJson["Priorities"].append({'name': prority.name, 'level': prority.level})
+
+    returnTasks = base64.b64encode(json.dumps(prorityJson).encode()).decode()
+
+    return JsonResponse({'status': 200, 'returnData': returnTasks})
+def updateData(SendedJson):
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+
+    JsonClear = decryptAES(SendedJson["ProrityJson"], cipher).split("*J*")[0]
+    print(JsonClear)
+    JsonLoaded = json.loads(JsonClear)
+
+    models.Prority.objects.filter(ownerUser=userselected).delete()
+    for prority in JsonLoaded["Priorities"]:
+        new = models.Prority()
+        new.name = prority["name"]
+        new.level = int(prority["level"])
+        new.ownerUser = userselected
+        new.save()
+    return JsonResponse({'status': 200})
+
 
 def loginTOKEN(SendedJson):
     userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)

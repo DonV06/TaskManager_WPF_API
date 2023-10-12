@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class User(models.Model):
     login = models.CharField(max_length=100, unique=True)
     name = models.CharField(max_length=100)
@@ -8,10 +9,22 @@ class User(models.Model):
     AESkeyIV = models.CharField(max_length=512)
     token = models.CharField(max_length=200)
 
+class Prority(models.Model):
+    level = models.IntegerField()
+    name = models.CharField(max_length=100)
+    ownerUser = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE
+    )
+
 class Task(models.Model):
     uuid = models.CharField(max_length=256, unique=True)
     name = models.CharField(max_length=100)
     endTime = models.CharField(max_length=200)
+    specifiedPrority = models.ForeignKey(
+        Prority,
+        on_delete=models.DO_NOTHING
+    )
     specifiedUser = models.ForeignKey(
         User,
         on_delete=models.CASCADE
