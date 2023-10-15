@@ -84,7 +84,7 @@ def getUpdateDate(SendedJson):
     prorityJson = {'Priorities': []}
 
     for prority in prorityList:
-        prorityJson["Priorities"].append({'name': prority.name, 'level': prority.level})
+        prorityJson["Priorities"].append({'name': prority.name, 'level': prority.level, 'uuid': prority.uuid})
 
     returnTasks = base64.b64encode(json.dumps(prorityJson).encode()).decode()
 
@@ -102,6 +102,7 @@ def updateData(SendedJson):
         new = models.Prority()
         new.name = prority["name"]
         new.level = int(prority["level"])
+        new.uuid = prority["uuid"]
         new.ownerUser = userselected
         new.save()
     return JsonResponse({'status': 200})
@@ -188,6 +189,7 @@ def addTask(SendedJson):
     task.uuid = uuidTask
     task.name = nameTask
     task.endTime = dateTimeRaw
+    task.specifiedProrityUUID = SendedJson["prorityUUID"]
     task.specifiedUser = userselected
     task.save()
 

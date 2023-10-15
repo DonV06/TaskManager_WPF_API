@@ -12,6 +12,7 @@ class User(models.Model):
 class Prority(models.Model):
     level = models.IntegerField()
     name = models.CharField(max_length=100)
+    uuid = models.CharField(max_length=256, unique=True)
     ownerUser = models.ForeignKey(
         User,
         on_delete=models.CASCADE
@@ -21,10 +22,7 @@ class Task(models.Model):
     uuid = models.CharField(max_length=256, unique=True)
     name = models.CharField(max_length=100)
     endTime = models.CharField(max_length=200)
-    specifiedPrority = models.ForeignKey(
-        Prority,
-        on_delete=models.DO_NOTHING
-    )
+    specifiedProrityUUID = models.CharField(max_length=200)
     specifiedUser = models.ForeignKey(
         User,
         on_delete=models.CASCADE
