@@ -46,7 +46,8 @@ def APIRequest(request):
         if SendedJson["type"] == "updateData": return updateData(SendedJson)
         if SendedJson["type"] == "getUpdateDate": return getUpdateDate(SendedJson)
         if SendedJson["type"] == "getAllTasks": return getAllTasks(SendedJson)
-    return HttpResponse('API Request received')
+        if SendedJson["type"] == "updateTask": return updateTask(SendedJson)
+    return JsonResponse({"status": "206"})
 
 
 
@@ -116,13 +117,30 @@ def loginTOKEN(SendedJson):
     userselected.save()
     return JsonResponse({'status': 200})
 
+def updateTask(SendedJson):
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+    task = models.Task.objects.get(uuid=SendedJson["taskUUID"])
+    nameEncrypted = SendedJson["Name"]
+    nameTask = decryptAES(nameEncrypted, cipher)
+    DateTimeEncrypted = SendedJson["dateTime"]
+    dateTimeRaw = decryptAES(DateTimeEncrypted, cipher)
+
+    task.name = nameTask
+    task.endTime = dateTimeRaw
+    task.specifiedProrityUUID = SendedJson["prorityUUID"]
+    task.save()
+
+
+    return JsonResponse({"status": 200})
+
 def getAllTasks(SendedJson):
     userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
     if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
     tasks = models.Task.objects.filter(specifiedUser=userselected)
     returnTasks = {"tasks": []}
     for task in tasks:
-        returntask = {"name": task.name, "uuid": task.uuid, "dateTime": task.endTime}
+        returntask = {"name": task.name, "uuid": task.uuid, "dateTime": task.endTime, "priorityUUID": task.specifiedProrityUUID}
         returnTasks["tasks"].append(returntask)
 
     returnTasks = base64.b64encode(json.dumps(returnTasks).encode()).decode()
