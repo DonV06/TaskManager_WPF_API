@@ -28,5 +28,11 @@ class Task(models.Model):
         on_delete=models.CASCADE
     )
 
-
-
+class Group(models.Model):
+    uuid = models.CharField(max_length=256, unique=True)
+    name = models.CharField(max_length=100)
+    users = models.CharField(max_length=10000)
+    ownerID = models.ForeignKey(
+        User,
+        on_delete=models.DO_NOTHING
+    )

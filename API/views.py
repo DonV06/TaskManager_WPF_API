@@ -9,6 +9,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 import base64, json, uuid
 from API import models
+from API.models import Group
 
 
 class DownloadPublicKeyView(View):
@@ -47,6 +48,8 @@ def APIRequest(request):
         if SendedJson["type"] == "getUpdateDate": return getUpdateDate(SendedJson)
         if SendedJson["type"] == "getAllTasks": return getAllTasks(SendedJson)
         if SendedJson["type"] == "updateTask": return updateTask(SendedJson)
+        if SendedJson["type"] == "updateGroups": return updateGroups(SendedJson)
+        if SendedJson["type"] == "getGroups": return getGroups(SendedJson)
     return JsonResponse({"status": "206"})
 
 
@@ -75,6 +78,39 @@ def getUserWithCipther(SendedJson):
         return (models.User.objects.get(token=TokenDecrypted), cipher, (AesKey, AesKeyIV))
     except models.User.DoesNotExist:
         return (None, cipher, (AesKey, AesKeyIV))
+
+def updateGroups(SendedJson):
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+
+    groupsDataDecrypted = decryptAES(SendedJson["GroupsData"], cipher).split("|*|")[0]
+    print(groupsDataDecrypted)
+    groupsData = json.loads(groupsDataDecrypted)
+    Group.objects.filter(ownerID=userselected).delete()
+    for group in groupsData["groups"]:
+        newgroup = Group()
+        newgroup.uuid = group["uuid"]
+        newgroup.name = group["name"]
+        newgroup.ownerID = userselected
+        newgroup.users = json.dumps({"groups": group["emails"]})
+        newgroup.save()
+    return JsonResponse({"status": "200"})
+
+def getGroups(SendedJson):
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+
+    returnData = {"groups": []}
+    for group in Group.objects.filter(ownerID=userselected):
+        tempJson = {}
+        tempJson["emails"] = json.loads(group.users)["groups"]
+        tempJson["name"] = group.name
+        tempJson["uuid"] = group.uuid
+        tempJson["ownerEMAIL"] = group.ownerID.login
+        returnData["groups"].append(tempJson)
+
+    return JsonResponse({"status": "200", "returndata": json.dumps(returnData)})
+
 
 
 def getUpdateDate(SendedJson):
