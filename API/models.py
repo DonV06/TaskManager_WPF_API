@@ -27,8 +27,7 @@ class Task(models.Model):
         User,
         on_delete=models.CASCADE
     )
-
-class Group(models.Model):
+class GroupClass(models.Model):
     uuid = models.CharField(max_length=256, unique=True)
     name = models.CharField(max_length=100)
     users = models.CharField(max_length=10000)
@@ -36,3 +35,14 @@ class Group(models.Model):
         User,
         on_delete=models.DO_NOTHING
     )
+
+class GroupTask(models.Model):
+    uuid = models.CharField(max_length=256, unique=True)
+    name = models.CharField(max_length=100)
+    endTime = models.CharField(max_length=200)
+    specifiedProrityUUID = models.CharField(max_length=200)
+    specifiedGroup = models.ForeignKey(
+        GroupClass,
+        on_delete=models.CASCADE
+    )
+

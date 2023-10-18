@@ -9,7 +9,7 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 import base64, json, uuid
 from API import models
-from API.models import Group
+from API.models import GroupClass, User
 
 
 class DownloadPublicKeyView(View):
@@ -31,28 +31,6 @@ def decryptAES(message, AEScipher):
     messageAES = base64.b64decode(message)
     Decryptor = AEScipher.decryptor()
     return Decryptor.update(messageAES).decode().strip()
-
-
-@csrf_exempt
-def APIRequest(request):
-    if request.method == 'POST':
-        print(request.body.decode('utf-8'))
-        SendedJson = json.loads(request.body.decode('utf-8'))
-        if SendedJson["type"] == "loginNOTOKEN": return loginNOTOKEN(SendedJson)
-        if SendedJson["type"] == "loginTOKEN": return loginTOKEN(SendedJson)
-        if SendedJson["type"] == "addTask": return addTask(SendedJson)
-        if SendedJson["type"] == "getTask": return getTask(SendedJson)
-        if SendedJson["type"] == "refresh": return getAllTasksUUIDs(SendedJson)
-        if SendedJson["type"] == "delTask": return delTask(SendedJson)
-        if SendedJson["type"] == "updateData": return updateData(SendedJson)
-        if SendedJson["type"] == "getUpdateDate": return getUpdateDate(SendedJson)
-        if SendedJson["type"] == "getAllTasks": return getAllTasks(SendedJson)
-        if SendedJson["type"] == "updateTask": return updateTask(SendedJson)
-        if SendedJson["type"] == "updateGroups": return updateGroups(SendedJson)
-        if SendedJson["type"] == "getGroups": return getGroups(SendedJson)
-    return JsonResponse({"status": "206"})
-
-
 
 def getUserWithCipther(SendedJson):
     TokenEncrypted = SendedJson["token"]
@@ -79,6 +57,42 @@ def getUserWithCipther(SendedJson):
     except models.User.DoesNotExist:
         return (None, cipher, (AesKey, AesKeyIV))
 
+@csrf_exempt
+def APIRequest(request):
+    if request.method == 'POST':
+        print(request.body.decode('utf-8'))
+        SendedJson = json.loads(request.body.decode('utf-8'))
+        if SendedJson["type"] == "loginNOTOKEN": return loginNOTOKEN(SendedJson)
+        if SendedJson["type"] == "loginTOKEN": return loginTOKEN(SendedJson)
+        if SendedJson["type"] == "addTask": return addTask(SendedJson)
+        if SendedJson["type"] == "GroupAddTask": return GroupaddTask(SendedJson)
+        if SendedJson["type"] == "getTask": return getTask(SendedJson) #
+        if SendedJson["type"] == "refresh": return getAllTasksUUIDs(SendedJson) #
+        if SendedJson["type"] == "delTask": return delTask(SendedJson) #
+        if SendedJson["type"] == "updateData": return updateData(SendedJson)
+        if SendedJson["type"] == "getUpdateDate": return getUpdateDate(SendedJson)
+        if SendedJson["type"] == "getAllTasks": return getAllTasks(SendedJson)
+        if SendedJson["type"] == "getAllGroupTasks": return getAllGroupTasks(SendedJson)
+        if SendedJson["type"] == "updateTask": return updateTask(SendedJson) #
+        if SendedJson["type"] == "updateGroups": return updateGroups(SendedJson)
+        if SendedJson["type"] == "getGroups": return getGroups(SendedJson)
+        if SendedJson["type"] == "userExists": return userExists(SendedJson)
+    return JsonResponse({"status": "206"})
+
+
+def userExists(SendedJson):
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+    try:
+        testing_user = User.objects.get(login=SendedJson["login"])
+        return JsonResponse({"status": "200", "user": "True"})
+    except models.User.DoesNotExist:
+        return JsonResponse({"status": "200", "user": "False"})
+
+
+
+
+
 def updateGroups(SendedJson):
     userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
     if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
@@ -86,9 +100,9 @@ def updateGroups(SendedJson):
     groupsDataDecrypted = decryptAES(SendedJson["GroupsData"], cipher).split("|*|")[0]
     print(groupsDataDecrypted)
     groupsData = json.loads(groupsDataDecrypted)
-    Group.objects.filter(ownerID=userselected).delete()
+    GroupClass.objects.filter(ownerID=userselected).delete()
     for group in groupsData["groups"]:
-        newgroup = Group()
+        newgroup = GroupClass()
         newgroup.uuid = group["uuid"]
         newgroup.name = group["name"]
         newgroup.ownerID = userselected
@@ -101,13 +115,24 @@ def getGroups(SendedJson):
     if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
 
     returnData = {"groups": []}
-    for group in Group.objects.filter(ownerID=userselected):
+    for group in GroupClass.objects.filter(ownerID=userselected):
         tempJson = {}
         tempJson["emails"] = json.loads(group.users)["groups"]
         tempJson["name"] = group.name
         tempJson["uuid"] = group.uuid
         tempJson["ownerEMAIL"] = group.ownerID.login
         returnData["groups"].append(tempJson)
+
+    for group in GroupClass.objects.filter():
+        groups = json.loads(group.users)
+
+        if userselected.login in groups["groups"]:
+            tempJson = {}
+            tempJson["emails"] = json.loads(group.users)["groups"]
+            tempJson["name"] = group.name
+            tempJson["uuid"] = group.uuid
+            tempJson["ownerEMAIL"] = group.ownerID.login
+            returnData["groups"].append(tempJson)
 
     return JsonResponse({"status": "200", "returndata": json.dumps(returnData)})
 
@@ -183,6 +208,19 @@ def getAllTasks(SendedJson):
 
     return JsonResponse({"status": 200, 'returnmessage': returnTasks})
 
+def getAllGroupTasks(SendedJson):
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+    tasks = models.GroupTask.objects.filter(specifiedGroup=models.GroupClass.objects.get(uuid=SendedJson["groupUUID"]))
+    returnTasks = {"tasks": []}
+    for task in tasks:
+        returntask = {"name": task.name, "uuid": task.uuid, "dateTime": task.endTime,
+                      "priorityUUID": task.specifiedProrityUUID}
+        returnTasks["tasks"].append(returntask)
+
+    returnTasks = base64.b64encode(json.dumps(returnTasks).encode()).decode()
+
+    return JsonResponse({"status": 200, 'returnmessage': returnTasks})
 
 def getAllTasksUUIDs(SendedJson):
     userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
@@ -255,6 +293,37 @@ def addTask(SendedJson):
     useruuidEncrypted = encryptor.update(plaintext_padded.encode('utf-8')) + encryptor.finalize()
     useruuid = base64.b64encode(useruuidEncrypted).decode()
     return JsonResponse({'status': 200, 'uuid': useruuid})
+
+def GroupaddTask(SendedJson):
+    userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
+    if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
+    nameEncrypted = SendedJson["Name"]
+    nameTask = decryptAES(nameEncrypted, cipher)
+    DateTimeEncrypted = SendedJson["dateTime"]
+    dateTimeRaw = decryptAES(DateTimeEncrypted, cipher)
+
+    GroupUUID = SendedJson["groupUUID"]
+
+
+    uuidTask = str(uuid.uuid4())
+
+    task = models.GroupTask()
+    task.uuid = uuidTask
+    task.name = nameTask
+    task.endTime = dateTimeRaw
+    task.specifiedProrityUUID = SendedJson["prorityUUID"]
+    task.specifiedGroup = GroupClass.objects.get(uuid=GroupUUID)
+    task.save()
+
+    encryptor = cipher.encryptor()
+    block_size = 16  # AES block size is 16 bytes
+    padding_length = block_size - len(uuidTask) % block_size
+    plaintext_padded = uuidTask + chr(padding_length) * padding_length
+
+    useruuidEncrypted = encryptor.update(plaintext_padded.encode('utf-8')) + encryptor.finalize()
+    taskuuid = base64.b64encode(useruuidEncrypted).decode()
+    return JsonResponse({'status': 200, 'uuid': taskuuid})
+
 def loginNOTOKEN(SendedJson):
     LoginEncrypted = base64.b64decode(SendedJson["User"])
     PasswordEncrypted = base64.b64decode(SendedJson["Password"])
