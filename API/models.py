@@ -13,10 +13,7 @@ class Prority(models.Model):
     level = models.IntegerField()
     name = models.CharField(max_length=100)
     uuid = models.CharField(max_length=256, unique=True)
-    ownerUser = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE
-    )
+    ownerUUID = models.CharField(max_length=300)
 
 class Task(models.Model):
     uuid = models.CharField(max_length=256, unique=True)
