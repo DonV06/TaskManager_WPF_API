@@ -152,7 +152,7 @@ def getUpdateDate(SendedJson):
 
 
     else:
-        prorityList = models.Prority.objects.filter(ownerUser=SendedJson["updatedUser"])
+        prorityList = models.Prority.objects.filter(ownerUUID=SendedJson["updatedUser"])
         prorityJson = {'Priorities': []}
 
         for prority in prorityList:
@@ -166,8 +166,8 @@ def updateData(SendedJson):
     if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
 
     JsonClear = decryptAES(SendedJson["ProrityJson"], cipher).split("*J*")[0]
-    print(JsonClear)
     JsonLoaded = json.loads(JsonClear)
+    print(SendedJson)
     if SendedJson["userUpdated"] == "user":
         models.Prority.objects.filter(ownerUUID=userselected.id).delete()
         for prority in JsonLoaded["Priorities"]:
@@ -175,9 +175,18 @@ def updateData(SendedJson):
             new.name = prority["name"]
             new.level = int(prority["level"])
             new.uuid = prority["uuid"]
-            new.ownerUUID = userselected.uuid
+            new.ownerUUID = userselected.id
             new.save()
-        return JsonResponse({'status': 200})
+    else:
+        models.Prority.objects.filter(ownerUUID=SendedJson["userUpdated"]).delete()
+        for prority in JsonLoaded["Priorities"]:
+            new = models.Prority()
+            new.name = prority["name"]
+            new.level = int(prority["level"])
+            new.uuid = prority["uuid"]
+            new.ownerUUID = SendedJson["userUpdated"]
+            new.save()
+    return JsonResponse({'status': 200})
 
 
 def loginTOKEN(SendedJson):

@@ -12,7 +12,7 @@ class User(models.Model):
 class Prority(models.Model):
     level = models.IntegerField()
     name = models.CharField(max_length=100)
-    uuid = models.CharField(max_length=256, unique=True)
+    uuid = models.CharField(max_length=256)
     ownerUUID = models.CharField(max_length=300)
 
 class Task(models.Model):
