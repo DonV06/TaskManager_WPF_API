@@ -200,7 +200,9 @@ def loginTOKEN(SendedJson):
 def updateTask(SendedJson):
     userselected, cipher, AesKeyCombo = getUserWithCipther(SendedJson)
     if (userselected == None): return JsonResponse({'status': 203, 'errormessage': f"Session don't exists!"})
-    task = models.Task.objects.get(uuid=SendedJson["taskUUID"])
+    if SendedJson["updatedUser"] == "user": task = models.Task.objects.get(uuid=SendedJson["taskUUID"])
+    else: task = models.GroupTask.objects.get(uuid=SendedJson["taskUUID"])
+
     nameEncrypted = SendedJson["Name"]
     nameTask = decryptAES(nameEncrypted, cipher)
     DateTimeEncrypted = SendedJson["dateTime"]
@@ -279,11 +281,12 @@ def delTask(SendedJson):
     taskUUIDEncrypted = SendedJson["taskUUID"]
     taskUUID = decryptAES(taskUUIDEncrypted, cipher)
     try:
-        task = models.Task.objects.get(uuid = taskUUID)
+        if SendedJson["userUpdated"] == "user": task = models.Task.objects.get(uuid = taskUUID)
+        else: task = models.GroupTask.objects.get(uuid = taskUUID)
     except models.Task.DoesNotExist:
         return JsonResponse({'status': 204, 'errormessage': f"Task Don't exists!"})
-    print(task.delete())
 
+    task.delete()
 
     return JsonResponse({'status': 200})
 def addTask(SendedJson):
